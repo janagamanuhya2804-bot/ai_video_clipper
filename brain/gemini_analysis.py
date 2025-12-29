@@ -3,6 +3,14 @@ import json
 import time
 import requests
 from typing import List, Dict
+from dotenv import load_dotenv
+
+# ============================================================
+# LOAD ENV (CRITICAL FIX)
+# ============================================================
+
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 # ============================================================
 # CONFIG
@@ -10,8 +18,8 @@ from typing import List, Dict
 
 MODEL = "gemini-2.0-flash"
 BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
-MAX_RETRIES = 5
-CHUNK_SIZE = 40          # transcript segments per request
+MAX_RETRIES = 3
+CHUNK_SIZE = 40
 MAX_OUTPUT_TOKENS = 512
 TEMPERATURE = 0.4
 
@@ -19,11 +27,6 @@ TEMPERATURE = 0.4
 
 
 def _call_gemini(prompt: str, api_key: str) -> str:
-    """
-    Call Gemini 2.0 Flash with retry + exponential backoff.
-    Returns raw text output.
-    """
-
     endpoint = f"{BASE_URL}/{MODEL}:generateContent"
 
     payload = {
@@ -47,14 +50,12 @@ def _call_gemini(prompt: str, api_key: str) -> str:
             timeout=60
         )
 
-        # Rate limit handling
         if response.status_code == 429:
             wait = 2 ** attempt
             print(f"[Gemini] Rate limited. Retrying in {wait}s...")
             time.sleep(wait)
             continue
 
-        # Other errors
         if response.status_code != 200:
             raise RuntimeError(response.text)
 
@@ -88,7 +89,8 @@ JSON format:
     {{
       "start": "HH:MM:SS",
       "end": "HH:MM:SS",
-      "hook": "short engaging description"
+      "hook": "short engaging description",
+      "music_mood": "energetic | calm | cinematic | hype"
     }}
   ]
 }}
@@ -99,23 +101,14 @@ Transcript:
 
 
 def _safe_json_load(text: str) -> Dict:
-    """
-    Extracts and parses JSON even if Gemini adds extra text.
-    """
     start = text.find("{")
     end = text.rfind("}") + 1
-
     if start == -1 or end == -1:
-        raise ValueError("No JSON object found")
-
+        raise ValueError("No JSON found")
     return json.loads(text[start:end])
 
 
 def analyze_transcript(transcript: dict) -> dict:
-    """
-    Entry point called by main.py
-    """
-
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY not set")
@@ -126,9 +119,6 @@ def analyze_transcript(transcript: dict) -> dict:
 
     all_clips = []
 
-    # --------------------------------------------------------
-    # Process transcript in chunks
-    # --------------------------------------------------------
     for i in range(0, len(segments), CHUNK_SIZE):
         chunk = segments[i:i + CHUNK_SIZE]
         prompt = _build_prompt(chunk)
@@ -138,23 +128,23 @@ def analyze_transcript(transcript: dict) -> dict:
             parsed = _safe_json_load(raw_text)
             all_clips.extend(parsed.get("clips", []))
         except Exception as e:
-            print("[Gemini] Skipping chunk due to error:", e)
+            print("[Gemini] Chunk failed:", e)
 
-            if not all_clips:
-                print("[Demo Mode] Gemini unavailable, using fallback clips")
+    # ✅ REAL fallback (only if Gemini fully failed)
+    if not all_clips:
+        print("[Demo Mode] Using fallback clips")
+        return {
+            "clips": [
+                {
+                    "start": "00:00:10",
+                    "end": "00:00:15",
+                    "hook": "Key insight that hooks the viewer",
+                    "music_mood": "energetic"
+                }
+            ]
+        }
 
-    return {
-        "clips": [
-            {
-                "start": "00:00:10",
-                "end": "00:00:15",
-                "hook": "Key insight that hooks the viewer",
-                "music_mood": "energetic"
-            }
-        ]
-    }
-
-    return {"clips": all_clips} 
+    return {"clips": all_clips}
 
  
 
