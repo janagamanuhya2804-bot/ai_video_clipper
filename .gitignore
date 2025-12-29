@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environment
+.venv/
+
+# Generated files
+*.mp4
+clips.json
+output/
+
+# VS Code
+.vscode/
+
+# Environment variables
+.env
