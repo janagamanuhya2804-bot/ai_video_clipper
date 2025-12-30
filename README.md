@@ -1,4 +1,4 @@
-# 🎬 Content Automation
+# ContentAutomator
 
 Transform your videos into engaging short-form clips with AI-generated music.
 
