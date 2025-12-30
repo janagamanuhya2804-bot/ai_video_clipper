@@ -8,7 +8,6 @@ Transform your videos into engaging short-form clips with AI-generated music.
 - 🤖 **AI Clip Analysis** - Gemini AI identifies the best moments
 - 🎵 **Custom Music** - Stability AI generates background music
 - ✂️ **Video Clipping** - Precise video segment extraction
-- 🎭 **Demo Mode** - Try it without API keys
 
 ## Quick Start
 
@@ -30,7 +29,6 @@ Transform your videos into engaging short-form clips with AI-generated music.
    ```
 
 4. **Use the interface:**
-   - Enable Demo Mode for instant results (no API keys needed)
    - Upload a video or paste a transcript
    - Click "Generate Clips"
    - Download your clips and music
