@@ -11,29 +11,16 @@ from brain.transcript import generate_transcript
 from brain.gemini_analysis import analyze_transcript
 from brain.stability_music_generation import generate_music_for_clips
 from brain.clipper import cut_clips
-from brain.demo_data import (
-    get_demo_transcript, 
-    get_demo_analysis, 
-    get_demo_music_for_clips, 
-    get_demo_video_clips
-)
 
 # Helper functions
-def get_video_path(clip_idx, demo_mode):
-    """Get the correct video path based on mode"""
-    if demo_mode:
-        demo_path = f"output/demo_clip_{clip_idx}.mp4"
-        if os.path.exists(demo_path):
-            return demo_path
-        elif os.path.exists("output/clip_1.mp4"):
-            return "output/clip_1.mp4"
-    else:
-        regular_path = f"output/clip_{clip_idx}.mp4"
-        if os.path.exists(regular_path):
-            return regular_path
+def get_video_path(clip_idx):
+    """Get the video path for a clip"""
+    video_path = f"output/clip_{clip_idx}.mp4"
+    if os.path.exists(video_path):
+        return video_path
     return None
 
-def create_zip_file(clips, has_video, demo_mode):
+def create_zip_file(clips, has_video):
     """Create ZIP file with all content"""
     try:
         os.makedirs("output", exist_ok=True)
@@ -47,7 +34,7 @@ def create_zip_file(clips, has_video, demo_mode):
             for idx, clip in enumerate(clips, 1):
                 # Add video
                 if has_video:
-                    video_path = get_video_path(idx, demo_mode)
+                    video_path = get_video_path(idx)
                     if video_path:
                         zipf.write(video_path, f"videos/clip_{idx}.mp4")
                 
@@ -221,19 +208,7 @@ st.markdown("""
         color: #ef4444;
     }
     
-    /* Demo mode badge */
-    .demo-badge {
-        background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(217, 119, 6, 0.2) 100%);
-        color: #f59e0b;
-        padding: 0.75rem 1.5rem;
-        border-radius: 25px;
-        font-weight: 600;
-        font-size: 0.95rem;
-        display: inline-block;
-        margin: 0.5rem 0;
-        border: 1px solid rgba(245, 158, 11, 0.4);
-        backdrop-filter: blur(10px);
-    }
+    /* Demo mode badge - removed */
     
     /* Text styling */
     h1, h2, h3, h4, h5, h6 {
@@ -334,13 +309,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Demo mode toggle with beautiful styling
-col1, col2, col3 = st.columns([1, 2, 1])
-with col2:
-    demo_mode = st.checkbox("Demo Mode (No API keys needed)", key="demo_toggle")
-    if demo_mode:
-        st.markdown('<div class="demo-badge">Demo Mode Active - Try it instantly!</div>', unsafe_allow_html=True)
-
 # Input section with card styling
 st.markdown('<div class="input-section">', unsafe_allow_html=True)
 st.markdown("### Choose Your Input")
@@ -380,14 +348,14 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 # Processing logic
 if generate_clicked:
-    if not demo_mode and input_method == "Upload Video" and not uploaded_video:
+    if input_method == "Upload Video" and not uploaded_video:
         st.error("Please upload a video file")
-    elif not demo_mode and input_method == "Paste Transcript" and not transcript_text.strip():
+    elif input_method == "Paste Transcript" and not transcript_text.strip():
         st.error("Please enter a transcript")
     else:
         # Save uploaded video if needed
         temp_video_path = None
-        if uploaded_video and not demo_mode:
+        if uploaded_video:
             temp_video_path = f"temp_{uploaded_video.name}"
             with open(temp_video_path, "wb") as f:
                 f.write(uploaded_video.getbuffer())
@@ -398,39 +366,29 @@ if generate_clicked:
         with progress_container:
             with st.spinner("Creating your amazing clips..."):
                 try:
-                    if demo_mode:
-                        # Demo mode - use pre-generated content
-                        st.info("Demo Mode: Using pre-generated content")
-                        transcript = get_demo_transcript()
-                        analysis = get_demo_analysis(transcript)
-                        final_clips = get_demo_music_for_clips(transcript, analysis["clips"])
-                        if input_method == "Upload Video":
-                            get_demo_video_clips(temp_video_path, {"clips": final_clips})
+                    # Real processing
+                    if input_method == "Upload Video":
+                        st.info("Generating transcript from video...")
+                        transcript = generate_transcript(temp_video_path)
                     else:
-                        # Real processing
-                        if input_method == "Upload Video":
-                            st.info("Generating transcript from video...")
-                            transcript = generate_transcript(temp_video_path)
-                        else:
-                            transcript = {
-                                "text": transcript_text,
-                                "segments": [{"start": 0, "end": 30, "text": transcript_text}]
-                            }
-                        
-                        st.info("Analyzing content with AI...")
-                        analysis = analyze_transcript(transcript)
-                        
-                        st.info("Generating background music...")
-                        final_clips = generate_music_for_clips(transcript=transcript, clips=analysis["clips"])
-                        
-                        if input_method == "Upload Video":
-                            st.info("Extracting video clips...")
-                            cut_clips(temp_video_path, {"clips": final_clips})
+                        transcript = {
+                            "text": transcript_text,
+                            "segments": [{"start": 0, "end": 30, "text": transcript_text}]
+                        }
+                    
+                    st.info("Analyzing content with AI...")
+                    analysis = analyze_transcript(transcript)
+                    
+                    st.info("Generating background music...")
+                    final_clips = generate_music_for_clips(transcript=transcript, clips=analysis["clips"])
+                    
+                    if input_method == "Upload Video":
+                        st.info("Extracting video clips...")
+                        cut_clips(temp_video_path, {"clips": final_clips})
 
                     # Store results
                     st.session_state.clips = final_clips
                     st.session_state.has_video = input_method == "Upload Video"
-                    st.session_state.demo_mode = demo_mode
                     st.session_state.processed = True
 
                     st.success("Clips generated successfully!")
@@ -452,7 +410,7 @@ if st.session_state.get('processed', False):
     col1, col2 = st.columns(2)
     with col1:
         if st.button("Download All Files", use_container_width=True, key="download_all"):
-            zip_path = create_zip_file(clips, st.session_state.get('has_video', False), st.session_state.get('demo_mode', False))
+            zip_path = create_zip_file(clips, st.session_state.get('has_video', False))
             if zip_path:
                 with open(zip_path, "rb") as f:
                     st.download_button(
@@ -508,7 +466,7 @@ if st.session_state.get('processed', False):
             
             # Individual downloads with beautiful buttons
             if st.session_state.get('has_video', False):
-                video_path = get_video_path(idx, st.session_state.get('demo_mode', False))
+                video_path = get_video_path(idx)
                 if video_path and os.path.exists(video_path):
                     with open(video_path, "rb") as f:
                         st.download_button(
