@@ -1,12 +1,14 @@
 import os
 import json
 import time
-import requests
 from typing import List, Dict
 from dotenv import load_dotenv
 
+# Modern Gemini SDK
+import google.generativeai as genai
+
 # ============================================================
-# LOAD ENV (CRITICAL FIX)
+# LOAD ENV
 # ============================================================
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -16,53 +18,44 @@ load_dotenv(os.path.join(BASE_DIR, ".env"))
 # CONFIG
 # ============================================================
 
-MODEL = "gemini-2.0-flash"
-BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
-MAX_RETRIES = 3
+MODEL_NAME = "gemini-2.0-flash"
 CHUNK_SIZE = 40
 MAX_OUTPUT_TOKENS = 512
 TEMPERATURE = 0.4
+MAX_RETRIES = 3
+
+# ============================================================
+# GEMINI SETUP (MODERN WAY)
+# ============================================================
+
+API_KEY = os.getenv("GEMINI_API_KEY")
+if not API_KEY:
+    raise RuntimeError("GEMINI_API_KEY not set")
+
+genai.configure(api_key=API_KEY)
+model = genai.GenerativeModel(
+    model_name=MODEL_NAME,
+    generation_config={
+        "temperature": TEMPERATURE,
+        "max_output_tokens": MAX_OUTPUT_TOKENS,
+    },
+)
 
 # ============================================================
 
 
-def _call_gemini(prompt: str, api_key: str) -> str:
-    endpoint = f"{BASE_URL}/{MODEL}:generateContent"
-
-    payload = {
-        "generationConfig": {
-            "temperature": TEMPERATURE,
-            "maxOutputTokens": MAX_OUTPUT_TOKENS
-        },
-        "contents": [
-            {
-                "role": "user",
-                "parts": [{"text": prompt}]
-            }
-        ]
-    }
-
+def _call_gemini(prompt: str) -> str:
     for attempt in range(MAX_RETRIES):
-        response = requests.post(
-            f"{endpoint}?key={api_key}",
-            headers={"Content-Type": "application/json"},
-            json=payload,
-            timeout=60
-        )
-
-        if response.status_code == 429:
+        try:
+            response = model.generate_content(prompt)
+            return response.text
+        except Exception as e:
+            if attempt == MAX_RETRIES - 1:
+                raise
             wait = 2 ** attempt
-            print(f"[Gemini] Rate limited. Retrying in {wait}s...")
+            print(f"[Gemini] Error, retrying in {wait}s: {e}")
             time.sleep(wait)
-            continue
 
-        if response.status_code != 200:
-            raise RuntimeError(response.text)
-
-        data = response.json()
-        return data["candidates"][0]["content"]["parts"][0]["text"]
-
-    raise RuntimeError("Gemini failed after retries")
 
 
 def _build_prompt(segments: List[Dict]) -> str:
@@ -100,19 +93,21 @@ Transcript:
 """.strip()
 
 
+
 def _safe_json_load(text: str) -> Dict:
     start = text.find("{")
     end = text.rfind("}") + 1
-    if start == -1 or end == -1:
-        raise ValueError("No JSON found")
+    if start == -1 or end == 0:
+        raise ValueError("No JSON found in Gemini response")
     return json.loads(text[start:end])
 
 
-def analyze_transcript(transcript: dict) -> dict:
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        raise RuntimeError("GEMINI_API_KEY not set")
+# ============================================================
+# MAIN ANALYSIS
+# ============================================================
 
+
+def analyze_transcript(transcript: dict) -> dict:
     segments = transcript.get("segments", [])
     if not segments:
         return {"clips": []}
@@ -120,36 +115,30 @@ def analyze_transcript(transcript: dict) -> dict:
     all_clips = []
 
     for i in range(0, len(segments), CHUNK_SIZE):
-        chunk = segments[i:i + CHUNK_SIZE]
+        chunk = segments[i : i + CHUNK_SIZE]
         prompt = _build_prompt(chunk)
 
         try:
-            raw_text = _call_gemini(prompt, api_key)
+            raw_text = _call_gemini(prompt)
             parsed = _safe_json_load(raw_text)
-            all_clips.extend(parsed.get("clips", []))
+            clips = parsed.get("clips", [])
+            if not isinstance(clips, list):
+                raise ValueError("'clips' is not a list")
+            all_clips.extend(clips)
         except Exception as e:
             print("[Gemini] Chunk failed:", e)
 
-    # ✅ REAL fallback (only if Gemini fully failed)
     if not all_clips:
         print("[Demo Mode] Using fallback clips")
         return {
             "clips": [
                 {
                     "start": "00:00:10",
-                    "end": "00:00:15",
+                    "end": "00:00:45",
                     "hook": "Key insight that hooks the viewer",
-                    "music_mood": "energetic"
+                    "music_mood": "energetic",
                 }
             ]
         }
 
     return {"clips": all_clips}
-
- 
-
-
-
-
-
-

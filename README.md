@@ -1,55 +1,57 @@
-# 🎬 AI Video Clipper — Content Automation for Creators
+# 🎬 Content Automation
 
-## 🚀 Problem
-Content creators spend hours manually finding highlights, cutting videos, and choosing music for short-form platforms like Instagram Reels, YouTube Shorts, and TikTok.
+Transform your videos into engaging short-form clips with AI-generated music.
 
-This process is repetitive, time-consuming, and not scalable.
+## Features
 
----
+- 🎤 **Automatic Transcription** - Extract text from videos using Whisper
+- 🤖 **AI Clip Analysis** - Gemini AI identifies the best moments
+- 🎵 **Custom Music** - Stability AI generates background music
+- ✂️ **Video Clipping** - Precise video segment extraction
+- 🎭 **Demo Mode** - Try it without API keys
 
-## 💡 Solution
-AI Video Clipper automates the entire workflow:
+## Quick Start
 
-**Long Video / Transcript → AI Analysis → Auto-Generated Clips**
+1. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-Using Google Gemini and automation logic, creators get ready-to-post clip suggestions in seconds.
+2. **Set up API keys** (optional for demo mode):
+   ```bash
+   # Create .env file
+   GEMINI_API_KEY=your_gemini_key
+   STABILITY_API_KEY=your_stability_key
+   ```
 
----
+3. **Run the app:**
+   ```bash
+   streamlit run ui/app.py
+   ```
 
-## 🧠 How It Works
-1. User provides a transcript (or video → transcript)
-2. **Gemini AI** analyzes the content to:
-   - Identify engaging moments
-   - Generate clip timestamps
-   - Suggest music mood
-3. The system outputs structured clip data
-4. (Optional) FFmpeg can auto-cut the clips
+4. **Use the interface:**
+   - Enable Demo Mode for instant results (no API keys needed)
+   - Upload a video or paste a transcript
+   - Click "Generate Clips"
+   - Download your clips and music
 
-The system includes **graceful fallback mode** to ensure demos never fail due to API rate limits.
+## Demo Mode
 
----
+Try the full functionality without API keys:
+- ✅ Sample content included
+- ✅ Pre-generated clips and music
+- ✅ All download features work
+- ✅ Perfect for testing and demos
 
-## 🖥️ Tech Stack
-- **Python**
-- **Streamlit** — UI
-- **Google Gemini API** — AI analysis
-- **FFmpeg** — video clipping (local / cloud)
-- **GitHub** — version control
+## Requirements
 
----
+- Python 3.8+
+- FFmpeg (for video processing)
+- API keys (optional for demo mode)
 
-## ▶️ How to Run Locally
+## Output
 
-```bash
-# create virtual environment
-python -m venv .venv
-source .venv/Scripts/activate  # Windows
-
-# install dependencies
-python -m pip install -r requirements.txt
-
-# set API key (or use .env)
-set GEMINI_API_KEY=YOUR_KEY
-
-# run the app
-streamlit run ui/app.py
+- Video clips (MP4)
+- Background music (MP3)
+- Clip metadata (JSON)
+- ZIP download with everything
